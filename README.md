@@ -113,3 +113,15 @@ that's just a guess.
 
 One last note here: regardless of the IDE used, every submitted project must
 still be compilable with cmake and make./
+
+## Project Writeup
+
+MPC uses a prediction model that determines the most optimal path by minimizing a constructed cost function. In this case, the model is a vehicle model, where inputs to the system are steering and acceleration. The state of the system is the x position, y position, heading angle, velocity, cross track error, and heading error. The desired position of the vehicle is clearly the center of the lane. The model of the vehicles position is used as contstraints for the cost function. The constraints correspond to the cost function. The components of the cost funciton the cross track error, the heading error, the reference velocity error, the steering command and the acceleration command. These can be weighted in order to place more importance on certain parts. In my project I placed high importance on minimizing the use of steering, the change in steering, and the heading error. This was from trial and error, as the simulator was steering out of control at first.
+
+I started with N=25 and dt=0.05, as was given to us in the quiz. However, the dt was very small and due to latency delay, this was too short of a time to implement. After adjusting the numbers I decided on N=20 and dt=0.1.
+
+To fit a polynomial to the waypoints using polyfit, I had to first transform the waypoints into vehicle coordinates. This was done with a simple translation and rotation formula, similar to what was used in previous projects.
+
+In order to address the latency issue, the data read back from the simulator had to be tweaked to get a more accurate position and speed of the car. The reason is, by the time a command is sent from the controller to the actuators, the system is in a different state, and likewise, by the time data is sent from the system to the computer, the system has moved. I accounted for this latency by adjusting the data sent from the simulator by factors of a latency constant which was 0.1 for being equal to dt.
+
+Overall, this project was difficult but I believe once the correct set up was implemented, I was able to tune to my desire and the results are much better than the PID project.

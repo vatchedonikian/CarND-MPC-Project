@@ -127,20 +127,18 @@ int main() {
             
             // The cross track error is calculated by evaluating at polynomial at x, f(x)
             // and subtracting the desired y. In this case desired y is 0.
-            double cte = polyeval(coeffs, px);
+            double cte = polyeval(coeffs, 0);
             // Due to the sign starting at 0, the orientation error is -f'(x).
             // derivative of f is coeffs[1] + 2*coeffs[2]*px + 3*coeffs[3]*px*px
             double epsi = -atan(coeffs[1] + 2*coeffs[2]*px + 3*coeffs[3]*px*px);
-            //double epsi = -atan(coeffs[1]);
-
             
             Eigen::VectorXd state(6);
-            state << px, 0.0, 0.0, v, cte, epsi;
-            //state << px, 0.0, psi, v, cte, epsi;
+            state << 0.0, 0.0, 0.0, v, cte, epsi;
 
           double steer_value;
           double throttle_value;
 
+            //send data to mpc to solve for control inputs
             auto mpc_outs = mpc.Solve(state, coeffs);
             steer_value = -mpc_outs[0]/deg2rad(25);
             throttle_value = mpc_outs[1];

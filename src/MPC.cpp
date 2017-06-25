@@ -22,8 +22,8 @@ double dt = 0.1;
 const double Lf = 2.67;
 
 // Both the reference cross track and orientation errors are 0.
-// The reference velocity is set to 40 mph.
-double ref_v = 40;
+// The reference velocity is set to 40.
+double ref_v = 40*.447;
 
 
 // The solver takes all the state variables and actuator
@@ -52,7 +52,7 @@ class FG_eval {
     // the Solver function below.
       fg[0] = 0;
       
-      // The part of the cost based on the reference state.
+      // The part of the cost based on the reference state. weights are multiplied at end
       for (int t = 0; t < N; t++) {
           fg[0] += CppAD::pow(vars[cte_start + t], 2)*100;
           fg[0] += CppAD::pow(vars[epsi_start + t], 2)*10000;
