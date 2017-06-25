@@ -91,40 +91,59 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
-
-            Eigen::VectorXd x_eig(ptsx.size());
-            Eigen::VectorXd y_eig(ptsy.size());
             
-            for (int jv=0; jv<ptsx.size(); jv++) {
-            x_eig(jv) = ptsx[jv];
-            y_eig(jv) = ptsy[jv];
+            //account for the latency in the system:
+            double latency = 0.1; //latency value.
+            double delta = j[1]["steering_angle"]; //obtain steering angle from simulator
+            double a = j[1]["throttle"]; //obtain throttle angle from simulator
+            double Lf = 2.67; //defined in mpc.cpp
+            v *= 0.447; //convert from mph to m/s
+            //implement latency factors into data:
+            px += v * cos(psi) * latency;
+            py += v * sin(psi) * latency;
+            psi -= v * delta / Lf * latency;
+            v += a * latency;
+            
+            //convert waypoints to vehicle coordinates:
+            vector<double> ptsx_trans = vector<double>(ptsx.size());
+            vector<double> ptsy_trans = vector<double>(ptsy.size());
+            for (int i = 0; i < ptsx.size(); i++) {
+                double x_trans = ptsx[i] - px;
+                double y_trans = ptsy[i] - py;
+                ptsx_trans[i] = x_trans * cos(psi) + y_trans * sin(psi);
+                ptsy_trans[i] = -x_trans * sin(psi) + y_trans * cos(psi);
+            }
+            
+            //convert transformed coordinates into eigen vector data type
+            Eigen::VectorXd x_eig(ptsx_trans.size());
+            Eigen::VectorXd y_eig(ptsy_trans.size());
+            
+            for (int jv=0; jv<ptsx_trans.size(); jv++) {
+            x_eig(jv) = ptsx_trans[jv];
+            y_eig(jv) = ptsy_trans[jv];
             
             }
-            auto coeffs = polyfit(x_eig, y_eig, 3);
+            auto coeffs = polyfit(x_eig, y_eig, 3); //perform polyfit to get the coefficients for the path
             
             // The cross track error is calculated by evaluating at polynomial at x, f(x)
-            // and subtracting y.
-            double cte = polyeval(coeffs, px) - py;
+            // and subtracting the desired y. In this case desired y is 0.
+            double cte = polyeval(coeffs, px);
             // Due to the sign starting at 0, the orientation error is -f'(x).
-            // derivative of coeffs[0] + coeffs[1] * x -> coeffs[1]
-            double epsi = psi - atan(coeffs[1]);
+            // derivative of f is coeffs[1] + 2*coeffs[2]*px + 3*coeffs[3]*px*px
+            double epsi = -atan(coeffs[1] + 2*coeffs[2]*px + 3*coeffs[3]*px*px);
+            //double epsi = -atan(coeffs[1]);
 
             
             Eigen::VectorXd state(6);
-            state << px, py, psi, v, cte, epsi;
-            
-                      /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+            state << px, 0.0, 0.0, v, cte, epsi;
+            //state << px, 0.0, psi, v, cte, epsi;
+
           double steer_value;
           double throttle_value;
 
-            auto controls = mpc.Solve(state, coeffs);
-            steer_value = controls[0]/deg2rad(25);
-            throttle_value = controls[1];
+            auto mpc_outs = mpc.Solve(state, coeffs);
+            steer_value = -mpc_outs[0]/deg2rad(25);
+            throttle_value = mpc_outs[1];
             
             
           json msgJson;
@@ -139,6 +158,10 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+            for (int i = 2; i < mpc_outs.size(); i++) {
+                if (i%2 == 0) mpc_x_vals.push_back(mpc_outs[i]);
+                else mpc_y_vals.push_back(mpc_outs[i]);
+            }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -149,6 +172,13 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+            double ref_points_dist = 2.5;
+            int num_ref_points = 25;
+            for (int i = 1; i < num_ref_points; i++) {
+                double ref_x = i * ref_points_dist;
+                next_x_vals.push_back(ref_x);
+                next_y_vals.push_back(polyeval(coeffs, ref_x));
+            }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
